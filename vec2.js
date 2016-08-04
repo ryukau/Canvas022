@@ -15,6 +15,10 @@ class Vec2 {
     this.y = v.y
   }
 
+  clone() {
+    return new Vec2(this.x, this.y)
+  }
+
   add(v) {
     this.x += v.x
     this.y += v.y
