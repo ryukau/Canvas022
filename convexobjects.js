@@ -22,6 +22,18 @@ class Scene {
       this.bodies[i].draw(this.canvas)
     }
   }
+
+  detectCollision() {
+    for (var i = 0; i < this.bodies.length; ++i) {
+      for (var j = i + 1; j < this.bodies.length; ++j) {
+        solveSAT(this.bodies[i], this.bodies[j])
+      }
+    }
+  }
+
+  solveSAT(body1, body2) {
+    var axes = body1.getNormals().concat(body2.getNormals())
+  }
 }
 
 class Body {
@@ -39,6 +51,27 @@ class Body {
 
     this.fill = U.randomColorCode()
     this.stroke = "#444444"
+  }
+
+  vertexAt(index) {
+    return this.vertices[U.mod(index, this.vertices.length)]
+  }
+
+  getNormals() {
+    // 未テスト。
+    var normals = []
+    var normal, temp
+    for (var i = 0; i < this.vertices.length; ++i) {
+      normal = this.vertexAt(i + 1)
+      normal.sub(this.vertices[i])
+
+      temp = normal.x
+      normal.x = -normal.y
+      normal.y = temp
+
+      normals.push(normal)
+    }
+    return normals
   }
 
   makeHull(maxWidth, maxHeight) {
@@ -105,6 +138,7 @@ function makeAsteroids() {
 animate()
 
 function animate() {
+  scene.detectCollision()
   scene.move()
   scene.draw()
   requestAnimationFrame(animate)
