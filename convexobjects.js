@@ -1,4 +1,30 @@
-class SceneObject {
+class Scene {
+  constructor() {
+    this.canvas = new Canvas(window.innerWidth, 512)
+    this.bodies = []
+  }
+
+  add(body) {
+    if (body instanceof Body) {
+      this.bodies.push(body)
+    }
+  }
+
+  move() {
+    for (var i = 0; i < this.bodies.length; ++i) {
+      this.bodies[i].move(this.canvas)
+    }
+  }
+
+  draw() {
+    this.canvas.clearWhite()
+    for (var i = 0; i < this.bodies.length; ++i) {
+      this.bodies[i].draw(this.canvas)
+    }
+  }
+}
+
+class Body {
   constructor(positionX, positionY, maxWidth, maxHeight) {
     this.vertices = this.makeHull(maxWidth, maxHeight)
     this.translateCentroidToOrigin()
@@ -39,16 +65,17 @@ class SceneObject {
   }
 
   draw(canvas) {
-    canvas.context.save()
-    canvas.context.translate(this.position.x, this.position.y)
-    canvas.context.rotate(this.rotation)
+    var context = canvas.context
+    context.save()
+    context.translate(this.position.x, this.position.y)
+    context.rotate(this.rotation)
 
-    canvas.context.fillStyle = this.fill
-    canvas.context.strokeStyle = this.stroke
-    canvas.context.lineWidth = 2
+    context.fillStyle = this.fill
+    context.strokeStyle = this.stroke
+    context.lineWidth = 2
     canvas.drawPath(this.vertices)
 
-    canvas.context.restore()
+    context.restore()
   }
 
   move(canvas) {
@@ -61,33 +88,24 @@ class SceneObject {
 }
 
 
+var scene = new Scene()
 
-var canvas = new Canvas(window.innerWidth, 512)
-
-var asteroids = makeAsteroids()
+makeAsteroids()
 function makeAsteroids() {
-  var asteroids = []
   for (var i = 0; i < 16; ++i) {
-    asteroids.push(new SceneObject(
-      Math.random() * canvas.width,
-      Math.random() * canvas.height,
+    scene.add(new Body(
+      Math.random() * scene.canvas.width,
+      Math.random() * scene.canvas.height,
       32 * (Math.random() * 2 + 1),
       32 * (Math.random() + 1)
     ))
   }
-  return asteroids
 }
 
 animate()
 
 function animate() {
-  for (var i = 0; i < asteroids.length; ++i) {
-    asteroids[i].move(canvas)
-  }
-
-  canvas.clearWhite()
-  for (var i = 0; i < asteroids.length; ++i) {
-    asteroids[i].draw(canvas)
-  }
+  scene.move()
+  scene.draw()
   requestAnimationFrame(animate)
 }
