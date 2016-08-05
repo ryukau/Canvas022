@@ -8,11 +8,13 @@ class Vec2 {
   set(x, y) {
     this.x = x
     this.y = y
+    return this
   }
 
   copy(v) {
     this.x = v.x
     this.y = v.y
+    return this
   }
 
   clone() {
@@ -22,16 +24,19 @@ class Vec2 {
   add(v) {
     this.x += v.x
     this.y += v.y
+    return this
   }
 
   sub(v) {
     this.x -= v.x
     this.y -= v.y
+    return this
   }
 
   mul(r) {
     this.x *= r
     this.y *= r
+    return this
   }
 
   dot(v) {
@@ -50,6 +55,13 @@ class Vec2 {
     var length = 1 / Math.sqrt(this.x * this.x + this.y * this.y)
     this.x *= length
     this.y *= length
+    return this
+  }
+
+  neg() {
+    this.x = -this.x
+    this.y = -this.y
+    return this
   }
 
   static add(a, b) {

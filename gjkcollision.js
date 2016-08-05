@@ -43,21 +43,105 @@ class Scene {
   }
 
   isCollideGJK(body1, body2) {
+    // 初期状態の三角形を作る。
+    var simplex = new Simplex()
+    var direction = new Vec2(1, 0)
+    simplex.add(this.support(body1, body2, direction))
+    direction.neg()
 
+    // debugger
+
+    // ループ開始。
+    while (true) {
+      simplex.add(this.support(body1, body2, direction))
+      if (simplex.getLast().dot(direction) <= 0) {
+        return false
+      }
+      if (this.containOrigin(simplex, direction)) {
+        return true
+      }
+    }
+  }
+
+  containOrigin(simplex, direction) {
+    var a = simplex.getLast()
+    var ao = a.clone().neg()
+
+    if (simplex.vertices.length == 3) {
+      var b = simplex.vertices[1]
+      var c = simplex.vertices[0]
+      var ab = Vec2.sub(b, a)
+      var ac = Vec2.sub(c, a)
+      var abPerp = this.tripleProduct(ac, ab, ab)
+      var acPerp = this.tripleProduct(ab, ac, ac)
+
+      if (abPerp.dot(ao) > 0) {
+        simplex.remove(c)
+        direction.copy(abPerp)
+        return false
+      }
+
+      if (acPerp.dot(ao) > 0) {
+        simplex.remove(b)
+        direction.copy(acPerp)
+        return false
+      }
+      return true
+    }
+
+    if (simplex.vertices.length == 2) {
+      var b = simplex.vertices[0]
+      var ab = Vec2.sub(b, a)
+      var abPerp = this.tripleProduct(ab, ao, ab)
+      direction.copy(abPerp)
+    }
+    return false
+  }
+
+  tripleProduct(a, b, c) {
+    var x = Vec2.mul(b, c.dot(a))
+    var y = Vec2.mul(a, c.dot(b))
+    return x.sub(y)
   }
 
   support(body1, body2, direction) {
-    var point1 = body1.getFarthestPointInDirection(direction)
-    var point2 = body2.getFarthestPointInDirection(direction)
-    var point3 = point1.sub(point2)
-    return point3
+    var d = direction.clone()
+    var point1 = body1.getFarthestPointInDirection(d)
+    var point2 = body2.getFarthestPointInDirection(d.neg())
+    return Vec2.sub(point1, point2)
+  }
+}
+
+class Simplex {
+  constructor() {
+    this.vertices = []
+  }
+
+  add(vertex) {
+    this.vertices.push(vertex)
+    if (this.vertices.length > 3) {
+      this.vertices.shift()
+    }
+  }
+
+  remove(vertex) {
+    var index = this.vertices.indexOf(vertex)
+    if (index >= 0) {
+      this.vertices.splice(index, 1)
+    }
+  }
+
+  getLast() {
+    return this.vertices[this.vertices.length - 1]
   }
 }
 
 class Body {
   constructor(positionX, positionY, maxWidth, maxHeight) {
-    this.vertices = this.makeHull(maxWidth, maxHeight)
-    this.translateCentroidToOrigin()
+    this.hull = this.makeHull(maxWidth, maxHeight)
+    this.translateCentroidToOrigin(this.hull)
+    this.vertices = []
+    this.initializeVertices(this.vertices)
 
     this.position = new Vec2(positionX, positionY)
     this.rotation = 0
@@ -99,30 +183,30 @@ class Body {
     return QuickHull.getHull(vertices)
   }
 
-  translateCentroidToOrigin() {
+  translateCentroidToOrigin(vertices) {
     var centroid = new Vec2(0, 0)
-    for (var i = 0; i < this.vertices.length; ++i) {
-      centroid.add(this.vertices[i])
+    for (var i = 0; i < vertices.length; ++i) {
+      centroid.add(vertices[i])
     }
-    centroid.mul(1 / this.vertices.length)
+    centroid.mul(1 / vertices.length)
 
-    for (var i = 0; i < this.vertices.length; ++i) {
-      this.vertices[i].sub(centroid)
+    for (var i = 0; i < vertices.length; ++i) {
+      vertices[i].sub(centroid)
+    }
+  }
+
+  initializeVertices(vertices) {
+    vertices.length = 0
+    for (var i = 0; i < this.hull.length; ++i) {
+      vertices.push(new Vec2(0, 0))
     }
   }
 
   draw(canvas) {
-    var context = canvas.context
-    context.save()
-    context.translate(this.position.x, this.position.y)
-    context.rotate(this.rotation)
-
-    context.fillStyle = this.fill
-    context.strokeStyle = this.stroke
-    context.lineWidth = 0
+    canvas.context.fillStyle = this.fill
+    canvas.context.strokeStyle = this.stroke
+    canvas.context.lineWidth = 0
     canvas.drawPath(this.vertices)
-
-    context.restore()
   }
 
   move(canvas) {
@@ -131,6 +215,18 @@ class Body {
     this.position.y = U.mod(this.position.y, canvas.height)
 
     this.rotation += this.angularVelocity
+
+    var sin = Math.sin(this.rotation)
+    var cos = Math.cos(this.rotation)
+    var x, y
+    for (var i = 0; i < this.hull.length; ++i) {
+      x = this.hull[i].x
+      y = this.hull[i].y
+      this.vertices[i].set(
+        x * cos - y * sin + this.position.x,
+        x * sin + y * cos + this.position.y
+      )
+    }
   }
 }
 
@@ -152,8 +248,8 @@ function makeAsteroids() {
 animate()
 
 function animate() {
+  scene.move()
   scene.detectCollision()
   scene.draw()
-  scene.move()
   requestAnimationFrame(animate)
 }
