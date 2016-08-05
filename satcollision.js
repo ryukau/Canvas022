@@ -68,8 +68,10 @@ class Scene {
 
 class Body {
   constructor(positionX, positionY, maxWidth, maxHeight) {
-    this.vertices = this.makeHull(maxWidth, maxHeight)
-    this.translateCentroidToOrigin()
+    this.hull = this.makeHull(maxWidth, maxHeight)
+    this.translateCentroidToOrigin(this.hull)
+    this.vertices = []
+    this.initializeVertices(this.vertices)
 
     this.position = new Vec2(positionX, positionY)
     this.rotation = 0
@@ -88,28 +90,11 @@ class Body {
   }
 
   projection(axis) {
-    // リファクタリング必要 ここから。
-    var vertices = []
-    var sin = Math.sin(this.rotation)
-    var cos = Math.cos(this.rotation)
-    var x, y
-    for (var i = 0; i < this.vertices.length; ++i) {
-      vertices.push(this.vertices[i].clone())
-
-      x = vertices[i].x
-      y = vertices[i].y
-      vertices[i].x = cos * x - sin * y
-      vertices[i].y = sin * x + cos * y
-
-      vertices[i] = Vec2.add(vertices[i], this.position)
-    }
-    // リファクタリング必要 ここまで。
-
-    var min = axis.dot(vertices[0])
+    var min = axis.dot(this.vertices[0])
     var max = min
     var candidate
     for (var i = 1; i < this.vertices.length; ++i) {
-      candidate = axis.dot(vertices[i])
+      candidate = axis.dot(this.vertices[i])
       if (candidate < min) {
         min = candidate
       }
@@ -147,30 +132,30 @@ class Body {
     return QuickHull.getHull(vertices)
   }
 
-  translateCentroidToOrigin() {
+  translateCentroidToOrigin(vertices) {
     var centroid = new Vec2(0, 0)
-    for (var i = 0; i < this.vertices.length; ++i) {
-      centroid.add(this.vertices[i])
+    for (var i = 0; i < vertices.length; ++i) {
+      centroid.add(vertices[i])
     }
-    centroid.mul(1 / this.vertices.length)
+    centroid.mul(1 / vertices.length)
 
-    for (var i = 0; i < this.vertices.length; ++i) {
-      this.vertices[i].sub(centroid)
+    for (var i = 0; i < vertices.length; ++i) {
+      vertices[i].sub(centroid)
+    }
+  }
+
+  initializeVertices(vertices) {
+    vertices.length = 0
+    for (var i = 0; i < this.hull.length; ++i) {
+      vertices.push(new Vec2(0, 0))
     }
   }
 
   draw(canvas) {
-    var context = canvas.context
-    context.save()
-    context.translate(this.position.x, this.position.y)
-    context.rotate(this.rotation)
-
-    context.fillStyle = this.fill
-    context.strokeStyle = this.stroke
-    context.lineWidth = 0
+    canvas.context.fillStyle = this.fill
+    canvas.context.strokeStyle = this.stroke
+    canvas.context.lineWidth = 0
     canvas.drawPath(this.vertices)
-
-    context.restore()
   }
 
   move(canvas) {
@@ -179,6 +164,18 @@ class Body {
     this.position.y = U.mod(this.position.y, canvas.height)
 
     this.rotation += this.angularVelocity
+
+    var sin = Math.sin(this.rotation)
+    var cos = Math.cos(this.rotation)
+    var x, y
+    for (var i = 0; i < this.hull.length; ++i) {
+      x = this.hull[i].x
+      y = this.hull[i].y
+      this.vertices[i].set(
+        x * cos - y * sin + this.position.x,
+        x * sin + y * cos + this.position.y
+      )
+    }
   }
 }
 
