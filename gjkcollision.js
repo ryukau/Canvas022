@@ -43,24 +43,57 @@ class Scene {
   }
 
   isCollideGJK(body1, body2) {
-    // 初期状態の三角形を作る。
     var simplex = new Simplex()
     var direction = new Vec2(1, 0)
     simplex.add(this.support(body1, body2, direction))
     direction.neg()
 
-    // debugger
-
-    // ループ開始。
     while (true) {
       simplex.add(this.support(body1, body2, direction))
       if (simplex.getLast().dot(direction) <= 0) {
         return false
       }
       if (this.containOrigin(simplex, direction)) {
+        this.getCollisionInfomationEPA(body1, body2, simplex)
         return true
       }
     }
+  }
+
+  getCollisionInfomationEPA(body1, body2, simplex) {
+    while (true) {
+      var edge = this.findClosestEdges(simplex)
+      var point = this.support(body1, body2, edge.normal)
+      var distance = point.dot(edge.normal)
+      if (distance - edge.distance < 1e-5) {
+        return {
+          normal: edge.normal,
+          depth: distance,
+        }
+      }
+      else {
+        simplex.vertices.splice(edge.index, 0, point)
+      }
+    }
+  }
+
+  findClosestEdges(simplex) {
+    var closest = {}
+    var vertices = simplex.vertices
+    var distance = Number.MAX_VALUE
+    for (var i = 0; i < vertices.length; ++i) {
+      var j = (i + 1) % vertices.length
+      var e = Vec2.sub(vertices[j], vertices[i])
+      var normal = this.tripleProduct(e, vertices[i], e)
+      normal.normalize()
+      var d = normal.dot(vertices[i])
+      if (d < distance) {
+        closest.distance = d
+        closest.normal = normal
+        closest.index = j
+      }
+    }
+    return closest
   }
 
   containOrigin(simplex, direction) {
