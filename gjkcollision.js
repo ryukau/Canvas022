@@ -145,6 +145,40 @@ class Scene {
   }
 }
 
+class Solver {
+  // A x = B を x について解く。
+  // A は正方行列。
+  //
+  // Gauss-Seidel 法を使用。
+  // http://www.az.cs.is.nagoya-u.ac.jp/class/comp-sys/na_chap_6.pdf
+  //
+  // 本来なら for (iteration ...) ではなく while (収束判定) とすべき。
+  // ゲームの衝突判定なので速さ優先。
+  //
+  // 収束しない場合がある。以下の Convergence の項を参照。
+  // https://en.wikipedia.org/wiki/Gauss%E2%80%93Seidel_method
+  static GaussSeidel(A, B) {
+    var x = new Array(B.length).fill(0)
+    for (var iteration = 0; iteration < 10; ++iteration) {
+      for (var i = 0; i < A.length; ++i) {
+        var sum = 0
+        for (var j = 0; j < A[0].length; ++j) {
+          if (i !== j) {
+            sum += A[i][j] * x[j]
+          }
+        }
+        x[i] = (B[i] - sum) / A[i][i]
+
+        // 収束しないときは終了。
+        if (!Number.isFinite(x[i])) {
+          return x.fill(0)
+        }
+      }
+    }
+    return x
+  }
+}
+
 class Simplex {
   constructor() {
     this.vertices = []
@@ -262,6 +296,22 @@ class Body {
     }
   }
 }
+
+// Solverのテスト
+
+// Case 1
+var A, B, x
+A = [[10, -1, 2, 0], [-1, 11, -1, 3], [2, -1, 10, -1], [0, 3, -1, 8]]
+B = [6, 25, -11, 15]
+x = Solver.GaussSeidel(A, B)
+console.log(x) // [1, 2, -1, 1]
+
+// Case 2
+// GaussSeidelでは収束しない。
+A = [[1, -2, 3], [3, 1, -5], [-2, 6, -9]]
+B = [1, -4, -2]
+x = Solver.GaussSeidel(A, B)
+console.log(x) // [1, 3, 2]
 
 
 var scene = new Scene()
