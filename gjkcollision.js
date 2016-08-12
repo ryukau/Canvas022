@@ -54,10 +54,26 @@ class Scene {
         return false
       }
       if (this.containOrigin(simplex, direction)) {
-        this.getCollisionInfomationEPA(body1, body2, simplex)
+        // var info = this.getCollisionInfomationEPA(body1, body2, simplex)
+        // this.collide(body1, body2, info)
         return true
       }
     }
+  }
+
+  collide(body1, body2, info) {
+    // 未完成。
+    var direction = Vec2.sub(body2.position, body1.position).normalize()
+    var mass_ratio1 = body1.mass / (body1.mass + body2.mass)
+    var mass_ratio2 = 1 - mass_ratio1
+
+    // 重なりを解消。
+    console.log(info.depth)
+    if (info.depth > 100) debugger
+    body1.position.sub(Vec2.mul(direction, mass_ratio1 * info.depth))
+    body2.position.add(Vec2.mul(direction, mass_ratio2 * info.depth))
+
+    // 外力を加える。
   }
 
   getCollisionInfomationEPA(body1, body2, simplex) {
@@ -65,7 +81,7 @@ class Scene {
       var edge = this.findClosestEdges(simplex)
       var point = this.support(body1, body2, edge.normal)
       var distance = point.dot(edge.normal)
-      if (distance - edge.distance < 1e-5) {
+      if ((distance - edge.distance) < 1e-5) {
         return {
           normal: edge.normal,
           depth: distance,
@@ -210,6 +226,7 @@ class Body {
     this.vertices = []
     this.initializeVertices(this.vertices)
 
+    this.mass = 1
     this.position = new Vec2(positionX, positionY)
     this.rotation = 0
     this.velocity = new Vec2(
@@ -281,7 +298,7 @@ class Body {
     this.position.x = U.mod(this.position.x, canvas.width)
     this.position.y = U.mod(this.position.y, canvas.height)
 
-    this.rotation += this.angularVelocity
+    this.rotation = (this.rotation + this.angularVelocity) % (Math.PI * 2)
 
     var sin = Math.sin(this.rotation)
     var cos = Math.cos(this.rotation)
@@ -318,12 +335,12 @@ var scene = new Scene()
 
 makeAsteroids()
 function makeAsteroids() {
-  for (var i = 0; i < 16; ++i) {
+  for (var i = 0; i < 2; ++i) {
     scene.add(new Body(
       Math.random() * scene.canvas.width,
       Math.random() * scene.canvas.height,
-      32 * (Math.random() * 2 + 1),
-      32 * (Math.random() + 1)
+      256 * (Math.random() * 2 + 1),
+      256 * (Math.random() + 1)
     ))
   }
 }

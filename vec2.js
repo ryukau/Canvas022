@@ -51,6 +51,10 @@ class Vec2 {
     return Math.sqrt(this.x * this.x + this.y * this.y)
   }
 
+  lengthSq() {
+    return this.x * this.x + this.y * this.y
+  }
+
   normalize() {
     var length = 1 / Math.sqrt(this.x * this.x + this.y * this.y)
     this.x *= length
@@ -78,5 +82,9 @@ class Vec2 {
 
   static mul(v, r) {
     return new Vec2(v.x * r, v.y * r)
+  }
+
+  static perpendicular(v) {
+    return new Vec2(-v.y, v.x)
   }
 }

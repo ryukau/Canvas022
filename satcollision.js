@@ -17,7 +17,6 @@ class Scene {
   }
 
   draw() {
-    this.canvas.clearWhite()
     this.canvas.context.lineCaps = "round"
     this.canvas.context.lineJoin = "round"
     for (var i = 0; i < this.bodies.length; ++i) {
@@ -34,35 +33,153 @@ class Scene {
 
     for (var i = 0; i < this.bodies.length; ++i) {
       for (var j = i + 1; j < this.bodies.length; ++j) {
-        if (this.isCollideSAT(this.bodies[i], this.bodies[j])) {
+        var collision = this.isCollideSAT(this.bodies[i], this.bodies[j])
+        if (collision !== null) {
           this.bodies[i].fill = "#ffaaaa"
           this.bodies[j].fill = "#ffaaaa"
+          this.collide(this.bodies[i], this.bodies[j], collision)
         }
       }
     }
   }
 
-  isCollideSAT(body1, body2) {
-    var axes = body1.getNormals().concat(body2.getNormals())
-    var projection1, projection2
-    for (var i = 0; i < axes.length; ++i) {
-      projection1 = body1.projection(axes[i])
-      projection2 = body2.projection(axes[i])
-      if (!this.isOverlap(projection1, projection2)) {
-        return false
-      }
-      else {
-        // 衝突時のインパルスを計算。
-      }
+  collide(body1, body2, collisionInfomation) {
+    var distance = collisionInfomation.distance
+    var index = collisionInfomation.index
+    if (index < body1.vertices.length) {
+      this.pullAway(body1, body2, index, distance)
     }
-    return true
+    else {
+      this.pullAway(body2, body1, index - body1.vertices.length, distance)
+    }
   }
 
+  pullAway(body1, body2, index, distance) {
+    // 引き離す。
+    var r = Vec2.sub(body2.position, body1.position) // direction にまとめられるかも。
+    var direction = r.clone().normalize()
+    var ratio1 = body2.mass / (body1.mass + body2.mass)
+    var ratio2 = 1 - ratio1
+    body1.position.sub(Vec2.mul(direction, ratio1 * distance))
+    body2.position.add(Vec2.mul(direction, ratio2 * distance))
+
+    // 接触点を探す。
+    var contact = this.findContactPoint(body1, body2, index)
+
+    // インパルスを計算。
+    var rA = Vec2.sub(contact, body1.position).normalize()
+    var rB = Vec2.sub(contact, body2.position).normalize()
+    var r_perpA = Vec2.perpendicular(rA).mul(body1.angularVelocity)
+    var r_perpB = Vec2.perpendicular(rB).mul(body2.angularVelocity)
+
+    var vA = Vec2.add(body1.velocity, r_perpA)
+    var vB = Vec2.add(body2.velocity, r_perpB)
+    var relative_velocity = Vec2.sub(vB, vA)
+    var impulseA = Vec2.mul(relative_velocity, ratio1)
+    var impulseB = Vec2.mul(relative_velocity, ratio2)
+
+    var elasticity = 1.4 // body1.elasticity * body2.elasticity
+    var dvA = impulseA.dot(rA) * elasticity
+    var dvB = impulseB.dot(rB) * elasticity
+    var dthetaA = impulseA.dot(r_perpA)
+    var dthetaB = impulseB.dot(r_perpB)
+
+    body1.velocity = rA.mul(dvA)
+    body2.velocity = rB.mul(-dvB)
+    body1.angularVelocity = dthetaA
+    body2.angularVelocity = -dthetaB
+
+    // debugger
+  }
+
+  findContactPoint(body1, body2, index) {
+    var next = (index + 1) % body1.vertices.length
+    var lineA = body1.vertices[index]
+    var lineB = body1.vertices[next]
+    var minDistance = this.distancePointLine(body2.vertices[0], lineA, lineB)
+    var pointIndex = 0
+    for (var i = 1; i < body2.vertices.length; ++i) {
+      var distance = this.distancePointLine(body2.vertices[i], lineA, lineB)
+      if (minDistance > distance) {
+        minDistance = distance
+        pointIndex = i
+      }
+    }
+
+    // debug collision point.
+    this.canvas.context.fillStyle = "#ff88ff"
+    this.canvas.drawPoint(body2.vertices[pointIndex], 8)
+    this.canvas.context.fillStyle = "#88ffff"
+    this.canvas.drawPoint(lineA, 4)
+    this.canvas.context.fillStyle = "#88ffff"
+    this.canvas.drawPoint(lineB, 4)
+
+    return body2.vertices[pointIndex].clone()
+  }
+
+  isCollideSAT(body1, body2) {
+    var axes = body1.getNormals().concat(body2.getNormals())
+    var minDistance = Number.MAX_VALUE
+    var index = 0
+    for (var i = 0; i < axes.length; ++i) {
+      var projection1 = body1.projection(axes[i])
+      var projection2 = body2.projection(axes[i])
+      var overlap = this.isOverlap(projection1, projection2)
+      if (overlap === null) {
+        return null
+      }
+      else {
+        if (minDistance > overlap) {
+          minDistance = overlap
+          index = i
+        }
+      }
+    }
+    return {
+      distance: minDistance,
+      index: index,
+    }
+  }
+
+  // http://stackoverflow.com/questions/15726825/find-overlap-between-collinear-lines
+  // a = [min, max], b = [min, max]
   isOverlap(a, b) {
     if ((a[1] - b[0]) >= 0 && (b[1] - a[0]) >= 0) {
-      return true
+      return Math.abs(Math.min(a[1], b[1]) - Math.max(a[0], b[0]))
     }
-    return false
+    return null
+  }
+
+  tripleProduct(a, b, c) {
+    var x = Vec2.mul(b, c.dot(a))
+    var y = Vec2.mul(a, c.dot(b))
+    return x.sub(y)
+  }
+
+  // http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+  // lineA, lineB は、同じ直線上の点。
+  distancePointLine(point, lineA, lineB) {
+    var pa = Vec2.sub(point, lineA)
+    var ab = Vec2.sub(lineB, lineA)
+    var dot = ab.dot(pa)
+    var lengthsq = ab.lengthSq()
+    var param = -1
+    if (lengthsq > 1e-5) {
+      param = dot / lengthsq
+    }
+
+    var nearest
+    if (param < 0) {
+      nearest = lineA
+    }
+    else if (param > 1) {
+      nearest = lineB
+    }
+    else {
+      nearest = Vec2.add(lineA, ab.mul(param))
+    }
+
+    return Vec2.sub(point, nearest).length()
   }
 }
 
@@ -73,20 +190,17 @@ class Body {
     this.vertices = []
     this.initializeVertices(this.vertices)
 
+    this.mass = 1
     this.position = new Vec2(positionX, positionY)
     this.rotation = 0
     this.velocity = new Vec2(
       U.randomPlusMinus() * 1,
       U.randomPlusMinus() * 1
     )
-    this.angularVelocity = U.randomPlusMinus() * 0.01
+    this.angularVelocity = U.randomPlusMinus() * 0.1
 
     this.fill = "#aaaaff"//U.randomColorCode()
     this.stroke = "#444444"
-  }
-
-  vertexAt(index) {
-    return this.vertices[U.mod(index, this.vertices.length)]
   }
 
   projection(axis) {
@@ -107,11 +221,11 @@ class Body {
 
   getNormals() {
     var normals = []
-    var normal, temp
     for (var i = 0; i < this.vertices.length; ++i) {
-      normal = Vec2.sub(this.vertexAt(i + 1), this.vertices[i])
+      var j = (i + 1) % this.vertices.length
+      var normal = Vec2.sub(this.vertices[j], this.vertices[i])
 
-      temp = normal.x
+      var temp = normal.x
       normal.x = -normal.y
       normal.y = temp
 
@@ -184,7 +298,7 @@ var scene = new Scene()
 
 makeAsteroids()
 function makeAsteroids() {
-  for (var i = 0; i < 16; ++i) {
+  for (var i = 0; i < 32; ++i) {
     scene.add(new Body(
       Math.random() * scene.canvas.width,
       Math.random() * scene.canvas.height,
@@ -197,6 +311,7 @@ function makeAsteroids() {
 animate()
 
 function animate() {
+  scene.canvas.clearWhite()
   scene.detectCollision()
   scene.draw()
   scene.move()

@@ -126,6 +126,31 @@ class U {
     return c
   }
 
+  // 距離。
+  distancePointLine(point, lineA, lineB) {
+    var ab = Vec2.sub(lineB, lineA)
+    var pa = Vec2.sub(lineA, point)
+    var dot = ab.dot(pa)
+    var lengthsq = ab.lengthSq()
+    var param = -1
+    if (lengthsq <= 0) {
+      param = dot / lengthsq
+    }
+
+    var nearest
+    if (param < 0) {
+      nearest = lineA
+    }
+    else if (param > 1) {
+      nearest = lineB
+    }
+    else {
+      nearest = Vec2.add(lineA, ab.mul(param))
+    }
+
+    return Vec2.sub(point, nearest).length()
+  }
+
   // ランダムなカラーコードを生成。
   // 少し明るめの色。
   static randomColorCode() {
