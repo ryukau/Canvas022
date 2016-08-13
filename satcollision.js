@@ -47,26 +47,31 @@ class Scene {
     var distance = collisionInfomation.distance
     var index = collisionInfomation.index
     if (index < body1.vertices.length) {
-      this.pullAway(body1, body2, index, distance)
+      this.resolveCollision(body1, body2, index, distance)
     }
     else {
-      this.pullAway(body2, body1, index - body1.vertices.length, distance)
+      this.resolveCollision(body2, body1, index - body1.vertices.length, distance)
     }
   }
 
-  pullAway(body1, body2, index, distance) {
+  resolveCollision(body1, body2, index, distance) {
+    this.pullAway(body1, body2, distance)
+    var contact = this.findContactPoint(body1, body2, index)
+    this.calcImpulse(body1, body2, contact.point, contact.normal)
+  }
+
+  pullAway(body1, body2, distance) {
     var direction = Vec2.sub(body2.position, body1.position).normalize()
     var ratio1 = body2.mass / (body1.mass + body2.mass)
     var ratio2 = 1 - ratio1
     body1.position.sub(Vec2.mul(direction, ratio1 * distance))
     body2.position.add(Vec2.mul(direction, ratio2 * distance))
-
-    var contact = this.findContactPoint(body1, body2, index)
-    this.calcImpulse(body1, body2, contact.point, contact.normal)
   }
 
   // インパルスを計算。
   // http://www.myphysicslab.com/collision.html
+  //
+  // velocity に NaN が代入されることがあるかも。
   calcImpulse(A, B, contact, normal) {
     var rap = Vec2.sub(contact, A.position)
     var rbp = Vec2.sub(contact, B.position)
@@ -78,19 +83,6 @@ class Scene {
     var vap1 = Vec2.add(A.velocity, omegaa1_rap)
     var vbp1 = Vec2.add(B.velocity, omegab1_rbp)
     var vab1 = Vec2.sub(vap1, vbp1)
-
-    if (isNaN(A.velocity.x) || isNaN(A.velocity.x)) {
-      console.log(
-        "A.velocity", A.velocity,
-        "B.velocity", B.velocity,
-        "omegaa1_rap", omegaa1_rap,
-        "omegab1_rbp", omegab1_rbp,
-        "vap1", vap1,
-        "vbp1", vbp1,
-        "vab1", vab1
-      )
-      debugger
-    }
 
     // 慣性モーメント。
     var ia = A.mass * rap.lengthSq() / 12
