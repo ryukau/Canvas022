@@ -210,7 +210,7 @@ class Body {
     this.vertices = []
     this.initializeVertices(this.vertices)
 
-    this.mass = 1
+    this.mass = this.area() // 面積を質量にする。適当。
     this.position = new Vec2(positionX, positionY)
     this.rotation = 0
     this.velocity = new Vec2(
@@ -221,6 +221,15 @@ class Body {
 
     this.fill = "#aaaaff"//U.randomColorCode()
     this.stroke = "#444444"
+  }
+
+  area() {
+    var sum = 0
+    for (var i = 0; i < this.hull.length; ++i) {
+      var next = (i + 1) % this.hull.length
+      sum += this.hull[i].cross(this.hull[next])
+    }
+    return 0.5 * Math.abs(sum)
   }
 
   projection(axis) {
