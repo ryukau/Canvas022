@@ -55,41 +55,58 @@ class Scene {
   }
 
   pullAway(body1, body2, index, distance) {
-    // 引き離す。
-    var r = Vec2.sub(body2.position, body1.position) // direction にまとめられるかも。
-    var direction = r.clone().normalize()
+    var direction = Vec2.sub(body2.position, body1.position).normalize()
     var ratio1 = body2.mass / (body1.mass + body2.mass)
     var ratio2 = 1 - ratio1
     body1.position.sub(Vec2.mul(direction, ratio1 * distance))
     body2.position.add(Vec2.mul(direction, ratio2 * distance))
 
-    // 接触点を探す。
     var contact = this.findContactPoint(body1, body2, index)
+    this.calcImpulse(body1, body2, contact.point, contact.normal)
+  }
 
-    // インパルスを計算。
-    var rA = Vec2.sub(contact, body1.position).normalize()
-    var rB = Vec2.sub(contact, body2.position).normalize()
-    var r_perpA = Vec2.perpendicular(rA).mul(body1.angularVelocity)
-    var r_perpB = Vec2.perpendicular(rB).mul(body2.angularVelocity)
+  // インパルスを計算。
+  // http://www.myphysicslab.com/collision.html
+  calcImpulse(A, B, contact, normal) {
+    var rap = Vec2.sub(contact, A.position)
+    var rbp = Vec2.sub(contact, B.position)
 
-    var vA = Vec2.add(body1.velocity, r_perpA)
-    var vB = Vec2.add(body2.velocity, r_perpB)
-    var relative_velocity = Vec2.sub(vB, vA)
-    var impulseA = Vec2.mul(relative_velocity, ratio1)
-    var impulseB = Vec2.mul(relative_velocity, ratio2)
+    var elasticity = 0.6 // 値は適当。
 
-    var elasticity = 1.4 // body1.elasticity * body2.elasticity
-    var dvA = impulseA.dot(rA) * elasticity
-    var dvB = impulseB.dot(rB) * elasticity
-    var dthetaA = impulseA.dot(r_perpA)
-    var dthetaB = impulseB.dot(r_perpB)
+    var omegaa1_rap = Vec2.perpendicular(rap).mul(A.angularVelocity)
+    var omegab1_rbp = Vec2.perpendicular(rbp).mul(B.angularVelocity)
+    var vap1 = Vec2.add(A.velocity, omegaa1_rap)
+    var vbp1 = Vec2.add(B.velocity, omegab1_rbp)
+    var vab1 = Vec2.sub(vap1, vbp1)
 
-    body1.velocity = rA.mul(dvA)
-    body2.velocity = rB.mul(-dvB)
-    body1.angularVelocity = dthetaA
-    body2.angularVelocity = -dthetaB
+    if (isNaN(A.velocity.x) || isNaN(A.velocity.x)) {
+      console.log(
+        "A.velocity", A.velocity,
+        "B.velocity", B.velocity,
+        "omegaa1_rap", omegaa1_rap,
+        "omegab1_rbp", omegab1_rbp,
+        "vap1", vap1,
+        "vbp1", vbp1,
+        "vab1", vab1
+      )
+      debugger
+    }
 
-    // debugger
+    // 慣性モーメント。
+    var ia = A.mass * rap.lengthSq() / 12
+    var ib = B.mass * rap.lengthSq() / 12
+
+    var numer = -(1 + elasticity) * vab1.dot(normal)
+    var rapn = rap.cross(normal)
+    var rbpn = rbp.cross(normal)
+    var denom = 1 / A.mass + 1 / B.mass + rapn * rapn / ia + rbpn * rbpn / ib
+    var j = numer / denom
+
+    var jn = Vec2.mul(normal, j)
+    A.velocity.add(Vec2.mul(jn, 1 / A.mass))
+    B.velocity.sub(Vec2.mul(jn, 1 / B.mass))
+    A.angularVelocity += (rap.cross(jn)) / ia
+    B.angularVelocity -= (rbp.cross(jn)) / ib
   }
 
   findContactPoint(body1, body2, index) {
@@ -114,7 +131,10 @@ class Scene {
     this.canvas.context.fillStyle = "#88ffff"
     this.canvas.drawPoint(lineB, 4)
 
-    return body2.vertices[pointIndex].clone()
+    return {
+      point: body2.vertices[pointIndex].clone(),
+      normal: Vec2.sub(lineB, lineA).perpendicular().normalize(),
+    }
   }
 
   isCollideSAT(body1, body2) {

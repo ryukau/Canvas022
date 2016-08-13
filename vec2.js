@@ -68,6 +68,13 @@ class Vec2 {
     return this
   }
 
+  perpendicular() {
+    var temp = this.x
+    this.x = -this.y
+    this.y = temp
+    return this
+  }
+
   static add(a, b) {
     return new Vec2(a.x + b.x, a.y + b.y)
   }
