@@ -1,6 +1,6 @@
 class Scene {
   constructor() {
-    this.canvas = new Canvas(window.innerWidth, 512)
+    this.canvas = new Canvas(512, 512)
     this.bodies = []
   }
 
@@ -335,12 +335,12 @@ var scene = new Scene()
 
 makeAsteroids()
 function makeAsteroids() {
-  for (var i = 0; i < 2; ++i) {
+  for (var i = 0; i < 16; ++i) {
     scene.add(new Body(
       Math.random() * scene.canvas.width,
       Math.random() * scene.canvas.height,
-      256 * (Math.random() * 2 + 1),
-      256 * (Math.random() + 1)
+      32 * (Math.random() * 2 + 1),
+      32 * (Math.random() + 1)
     ))
   }
 }

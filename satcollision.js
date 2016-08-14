@@ -1,6 +1,9 @@
+const NUM_BODY = 16
+
 class Scene {
   constructor() {
-    this.canvas = new Canvas(window.innerWidth, 512)
+    this.canvas = new Canvas(512, 512)
+    // this.canvas = new Canvas(window.innerWidth, window.innerHeight)
     this.bodies = []
   }
 
@@ -68,39 +71,6 @@ class Scene {
     body2.position.add(Vec2.mul(direction, ratio2 * distance))
   }
 
-  // インパルスを計算。
-  // http://www.myphysicslab.com/collision.html
-  //
-  // velocity に NaN が代入されることがあるかも。
-  calcImpulse(A, B, contact, normal) {
-    var rap = Vec2.sub(contact, A.position)
-    var rbp = Vec2.sub(contact, B.position)
-
-    var elasticity = 0.6 // 値は適当。
-
-    var omegaa1_rap = Vec2.perpendicular(rap).mul(A.angularVelocity)
-    var omegab1_rbp = Vec2.perpendicular(rbp).mul(B.angularVelocity)
-    var vap1 = Vec2.add(A.velocity, omegaa1_rap)
-    var vbp1 = Vec2.add(B.velocity, omegab1_rbp)
-    var vab1 = Vec2.sub(vap1, vbp1)
-
-    // 慣性モーメント。
-    var ia = A.mass * rap.lengthSq() / 12
-    var ib = B.mass * rap.lengthSq() / 12
-
-    var numer = -(1 + elasticity) * vab1.dot(normal)
-    var rapn = rap.cross(normal)
-    var rbpn = rbp.cross(normal)
-    var denom = 1 / A.mass + 1 / B.mass + rapn * rapn / ia + rbpn * rbpn / ib
-    var j = numer / denom
-
-    var jn = Vec2.mul(normal, j)
-    A.velocity.add(Vec2.mul(jn, 1 / A.mass))
-    B.velocity.sub(Vec2.mul(jn, 1 / B.mass))
-    A.angularVelocity += (rap.cross(jn)) / ia
-    B.angularVelocity -= (rbp.cross(jn)) / ib
-  }
-
   findContactPoint(body1, body2, index) {
     var next = (index + 1) % body1.vertices.length
     var lineA = body1.vertices[index]
@@ -127,6 +97,39 @@ class Scene {
       point: body2.vertices[pointIndex].clone(),
       normal: Vec2.sub(lineB, lineA).perpendicular().normalize(),
     }
+  }
+
+  // インパルスを計算。
+  // http://www.myphysicslab.com/collision.html
+  //
+  // velocity に NaN が代入されることがあるかも。
+  calcImpulse(A, B, contact, normal) {
+    var rap = Vec2.sub(contact, A.position)
+    var rbp = Vec2.sub(contact, B.position)
+
+    var elasticity = 0.8 // 値は適当。
+
+    var omegaa1_rap = Vec2.perpendicular(rap).mul(A.angularVelocity)
+    var omegab1_rbp = Vec2.perpendicular(rbp).mul(B.angularVelocity)
+    var vap1 = Vec2.add(A.velocity, omegaa1_rap)
+    var vbp1 = Vec2.add(B.velocity, omegab1_rbp)
+    var vab1 = Vec2.sub(vap1, vbp1)
+
+    // 慣性モーメント。
+    var ia = A.mass * rap.lengthSq() / 12
+    var ib = B.mass * rap.lengthSq() / 12
+
+    var numer = -(1 + elasticity) * vab1.dot(normal)
+    var rapn = rap.cross(normal)
+    var rbpn = rbp.cross(normal)
+    var denom = 1 / A.mass + 1 / B.mass + rapn * rapn / ia + rbpn * rbpn / ib
+    var j = numer / denom
+
+    var jn = Vec2.mul(normal, j)
+    A.velocity.add(Vec2.mul(jn, 1 / A.mass))
+    B.velocity.sub(Vec2.mul(jn, 1 / B.mass))
+    A.angularVelocity += (rap.cross(jn)) / ia
+    B.angularVelocity -= (rbp.cross(jn)) / ib
   }
 
   isCollideSAT(body1, body2) {
@@ -319,7 +322,7 @@ var scene = new Scene()
 
 makeAsteroids()
 function makeAsteroids() {
-  for (var i = 0; i < 32; ++i) {
+  for (var i = 0; i < NUM_BODY; ++i) {
     scene.add(new Body(
       Math.random() * scene.canvas.width,
       Math.random() * scene.canvas.height,
